@@ -1,0 +1,21 @@
+{
+  "buildOptions": {
+    "debugType": "portable",
+    "emitEntryPoint": false,
+    "define": [ "DEBUG", "NET_CORE" ],
+    "xmlDoc": true
+  },
+  "dependencies": {
+    "NETStandard.Library": "1.6.1"
+  },
+  "frameworks": {
+    "netstandard1.6": {
+      "imports": "dnxcore50"
+    }
+  },
+  "runtimes": {
+    "win10-x64": {},
+    "win10-x86": {}
+  },
+  "version": "1.0.0-*"
+}
