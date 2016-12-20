@@ -1,6 +1,6 @@
 ## Overview
 
-**Scheduler** is a thread-safe producer-consumer model that allows items to be added from multiple threads but allows only one thread to consume each of items.
+**Scheduler** is a thread-safe asynchronous producer-consumer model that allows items to be added from multiple threads but allows only one thread to consume each of items.
 
 This is an experimental project targeting .Net Core and .Net Framework 4.5. 
 
