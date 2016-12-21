@@ -77,6 +77,11 @@ namespace ModelWorkshop.Scheduling
         /// </summary>
         public event EventHandler<SchedulerErrorEventArgs<TItem>> SchedulerError;
 
+        /// <summary>
+        /// Occurs when items in <see cref="Items"/> are all consumed by <see cref="Callback"/>.
+        /// </summary>
+        public event EventHandler Completed;
+
         #endregion
 
         #region Constructor
@@ -261,6 +266,8 @@ namespace ModelWorkshop.Scheduling
         {
             if (task.Exception != null)
                 task.Exception.Handle(this.TaskExceptionHandler);
+            else
+                this.OnCompleted(EventArgs.Empty);
 #if !NET_CORE
             task.Dispose();
 #endif
@@ -298,13 +305,9 @@ namespace ModelWorkshop.Scheduling
             {
                 this.Error(this, e);
             }
-            catch (NullReferenceException)
-            {
-                // Do nothing.
-            }
             catch (Exception error)
             {
-                throw error;
+                if (this.Error != null) throw error;
             }
         }
 
@@ -317,14 +320,26 @@ namespace ModelWorkshop.Scheduling
             try
             {
                 this.SchedulerError(this, e);
-            }
-            catch (NullReferenceException)
+            } 
+            catch (Exception error)
             {
-                // Do nothing.
+                if (this.SchedulerError != null) throw error; 
+            }
+        }
+
+        /// <summary>
+        /// Raise the <see cref="Completed"/> event.
+        /// </summary>
+        /// <param name="e">An <see cref="EventArgs"/> that contains the event data.</param>
+        protected virtual void OnCompleted(EventArgs e)
+        {
+            try
+            {
+                this.Completed(this, e);
             }
             catch (Exception error)
             {
-                throw error;
+                if (this.Completed != null) throw error;
             }
         }
 

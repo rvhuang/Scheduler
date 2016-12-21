@@ -14,6 +14,7 @@ namespace ModelWorkshop.Example
             {
                 scheduler.Error += Scheduler_Error;
                 scheduler.SchedulerError += Scheduler_SchedulerError;
+                scheduler.Completed += Scheduler_Completed;
 
                 Parallel.Invoke(Enumerable.Repeat<Action>(() =>
                 {
@@ -33,9 +34,9 @@ namespace ModelWorkshop.Example
 
         private static void SchedulerCallback(MyItem item)
         {
-            Console.Write("Source Thread ID: ");
+            Console.Write("Producer Thread ID: ");
             Console.WriteLine(item.SourceThreadID);
-            Console.Write("Current Thread ID: ");
+            Console.Write("Consumer Thread ID: ");
             Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
             Console.WriteLine("======================");
             Thread.Sleep(300);
@@ -49,6 +50,11 @@ namespace ModelWorkshop.Example
         private static void Scheduler_SchedulerError(object sender, SchedulerErrorEventArgs<MyItem> e)
         {
             Console.Error.WriteLine(e.Error);
+        }
+
+        private static void Scheduler_Completed(object sender, EventArgs e)
+        {
+            Console.WriteLine("Scheduler completed.");
         }
     }
 }
