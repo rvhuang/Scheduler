@@ -111,7 +111,7 @@ namespace ModelWorkshop.Scheduling
         public Scheduler(Action<TItem> callback, IProducerConsumerCollection<TItem> items)
         {
             if (callback == null) throw new ArgumentNullException("callback");
-            if (items == null) throw new ArgumentNullException("queue");
+            if (items == null) throw new ArgumentNullException("items");
 
             this._items = items;
             this._callback = callback;
