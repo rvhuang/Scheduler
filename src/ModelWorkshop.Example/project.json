@@ -1,8 +1,8 @@
 {
   "buildOptions": {
     "debugType": "portable",
-    "emitEntryPoint": true,
-    "define": [ "DEBUG", "NET_CORE" ]
+    "define": [ "DEBUG", "NET_CORE" ],
+    "emitEntryPoint": true
   },
   "dependencies": {
     "ModelWorkshop.Scheduling": "1.0.0-*"

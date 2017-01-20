@@ -1,8 +1,8 @@
 {
   "buildOptions": {
     "debugType": "portable",
-    "emitEntryPoint": false,
     "define": [ "DEBUG", "NET_CORE" ],
+    "emitEntryPoint": false,
     "xmlDoc": true
   },
   "dependencies": {
