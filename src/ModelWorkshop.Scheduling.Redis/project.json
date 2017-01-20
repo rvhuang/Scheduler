@@ -1,0 +1,19 @@
+{
+  "buildOptions": {
+    "debugType": "portable",
+    "define": [ "DEBUG", "NET_CORE" ],
+    "emitEntryPoint": false,
+    "xmlDoc": false
+  },
+  "dependencies": {
+    "NETStandard.Library": "1.6.1",
+    "Newtonsoft.Json": "9.0.1",
+    "StackExchange.Redis.StrongName": "1.1.608"
+  },
+  "frameworks": {
+    "netstandard1.6": {
+      "imports": "dnxcore50"
+    }
+  },
+  "version": "1.0.0-*"
+}
