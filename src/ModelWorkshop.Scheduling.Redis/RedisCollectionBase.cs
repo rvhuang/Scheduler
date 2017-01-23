@@ -111,15 +111,12 @@ namespace ModelWorkshop.Scheduling.Redis
 
         public IEnumerator<TItem> GetEnumerator()
         {
-            var values = default(RedisValue[]);
+            var conn = this.connectionFactory();
+            var enumerator = new RedisCollectionEnumerator<TItem>(conn.GetDatabase(this.dbIndex), this.key, this.FromRedisValue);
 
-            using (var conn = this.connectionFactory())
-                values = conn.GetDatabase(this.dbIndex).ListRange(this.key);
+            enumerator.Disposed += (o, e) => conn.Dispose();
 
-            if (values == null || values.Length == 0)
-                return Enumerable.Empty<TItem>().GetEnumerator();
-            else
-                return values.Select(this.FromRedisValue).GetEnumerator();
+            return enumerator;
         }
 
         public TItem[] ToArray()
