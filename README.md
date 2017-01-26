@@ -10,7 +10,7 @@ The collection can be replaced by any type that implements ![IProducerConsumerCo
 
 ![Overview Redis](https://raw.githubusercontent.com/rvhuang/Scheduler/master/doc/images/scheduler-overview-redis.png)
 
-The Redis wrappers are defined in ![ModelWorkshop.Scheduling.Redis](https://github.com/rvhuang/Scheduler/tree/master/src/ModelWorkshop.Scheduling.Redis) namespace.
+The Redis wrappers are defined in [ModelWorkshop.Scheduling.Redis](https://github.com/rvhuang/Scheduler/tree/master/src/ModelWorkshop.Scheduling.Redis) namespace.
 
 ## Platforms
 
