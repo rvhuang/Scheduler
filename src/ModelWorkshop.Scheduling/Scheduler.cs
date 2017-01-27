@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,7 +14,7 @@ using System.Diagnostics;
 namespace ModelWorkshop.Scheduling
 {
     /// <summary>
-    /// Defines a thread-safe producer-consumer model that allows items to be added from multiple threads but allows only one thread to consume each of items.
+    /// Defines a producer-consumer model that allows items to be added from multiple threads but allows only one thread to consume each of items.
     /// </summary>
     /// <typeparam name="TItem">Specifies the type of elements in the collection.</typeparam>
     public class Scheduler<TItem> : IDisposable
@@ -108,15 +109,22 @@ namespace ModelWorkshop.Scheduling
         /// <param name="callback">The delegate that handles item taken from <see cref="Items"/>.</param>
         /// <param name="items">An <see cref="IProducerConsumerCollection{T}"/> instance that will be consumed by <see cref="Callback"/> delegate.</param>
         /// <exception cref="ArgumentNullException"><paramref name="callback"/> or <paramref name="items"/> is null.</exception>
+        /// <remarks>
+        /// If <paramref name="items"/> implements <see cref="INotifyCollectionChanged"/> interface,
+        /// item consuming task will automatically start once new item is added to the collection.
+        /// </remarks>
         public Scheduler(Action<TItem> callback, IProducerConsumerCollection<TItem> items)
         {
             if (callback == null) throw new ArgumentNullException("callback");
             if (items == null) throw new ArgumentNullException("items");
-
+            
             this._items = items;
             this._callback = callback;
             this._cancellation = new CancellationTokenSource();
             this._action = this.TaskAction;
+
+            if (items is INotifyCollectionChanged)
+                (items as INotifyCollectionChanged).CollectionChanged += this.Scheduler_CollectionChanged;
         }
 
         #endregion
@@ -325,6 +333,26 @@ namespace ModelWorkshop.Scheduling
             catch (Exception error)
             {
                 throw error;
+            }
+        }
+
+        #endregion
+
+        #region Event Handler
+
+        private void Scheduler_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action == NotifyCollectionChangedAction.Add)
+            {
+                try
+                {
+                    this.Run();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Already disposed. Unsubscribe the event.
+                    (this._items as INotifyCollectionChanged).CollectionChanged -= this.Scheduler_CollectionChanged;
+                }
             }
         }
 
