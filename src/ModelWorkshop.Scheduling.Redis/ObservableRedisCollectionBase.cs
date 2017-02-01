@@ -8,6 +8,8 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
+using System.Threading;
 
 namespace ModelWorkshop.Scheduling.Redis
 {
@@ -18,9 +20,15 @@ namespace ModelWorkshop.Scheduling.Redis
 
         private readonly JsonSerializer serializer;
         private readonly ConnectionMultiplexer conn;
-        
+
         private readonly RedisKey key;
+        private readonly RedisChannel ch;
         private readonly int dbIndex;
+
+        private readonly Lazy<ISubscriber> subscriber;
+
+        private event NotifyCollectionChangedEventHandler collectionChanged;
+        private event PropertyChangedEventHandler propertyChanged;
 
         #endregion
 
@@ -28,10 +36,7 @@ namespace ModelWorkshop.Scheduling.Redis
 
         public int Count
         {
-            get
-            {
-                return (int)conn.GetDatabase(this.dbIndex).ListLength(this.key);
-            }
+            get { return (int)conn.GetDatabase(this.dbIndex).ListLength(this.key); }
         }
 
         public RedisKey Key
@@ -54,13 +59,40 @@ namespace ModelWorkshop.Scheduling.Redis
             get { throw new NotImplementedException(); }
         }
 
+        protected ISubscriber Subscriber
+        {
+            get { return this.subscriber.Value; }
+        }
+
         #endregion
 
         #region Events
 
-        public event NotifyCollectionChangedEventHandler CollectionChanged;
+        public event NotifyCollectionChangedEventHandler CollectionChanged
+        {
+            add
+            {
+                this.subscriber.Value.Ping(); // Initialize and make sure the connection works.
+                this.collectionChanged += value;
+            }
+            remove
+            {
+                this.collectionChanged -= value;
+            }
+        }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler PropertyChanged
+        {
+            add
+            {
+                this.subscriber.Value.Ping(); // Initialize and make sure the connection works.
+                this.propertyChanged += value;
+            }
+            remove
+            {
+                this.propertyChanged -= value;
+            }
+        }
 
         #endregion
 
@@ -69,20 +101,24 @@ namespace ModelWorkshop.Scheduling.Redis
         protected ObservableRedisCollectionBase(ConnectionMultiplexer conn, RedisKey key, int db)
         {
             if (conn == null) throw new ArgumentNullException("conn");
-            
+
             this.conn = conn;
             this.key = key;
+            this.ch = new RedisChannel(this.key.ToString(), RedisChannel.PatternMode.Auto);
             this.dbIndex = db;
+
+            this.subscriber = new Lazy<ISubscriber>(this.CreateSubscriber, LazyThreadSafetyMode.PublicationOnly);
         }
 
         #endregion
-        
+
         #region Methods
 
         public bool TryAdd(TItem item)
         {
             if (this.OnAdd(item))
             {
+                this.Subscriber.Publish(this.ch, this.SignalToRedisValue(item, NotifyCollectionChangedAction.Add));
                 return true;
             }
             return false;
@@ -92,6 +128,7 @@ namespace ModelWorkshop.Scheduling.Redis
         {
             if (this.OnTake(out item))
             {
+                this.Subscriber.Publish(this.ch, this.SignalToRedisValue(item, NotifyCollectionChangedAction.Remove));
                 return true;
             }
             return false;
@@ -109,11 +146,7 @@ namespace ModelWorkshop.Scheduling.Redis
 
         public IEnumerator<TItem> GetEnumerator()
         {
-            var enumerator = new RedisCollectionEnumerator<TItem>(this.conn.GetDatabase(this.dbIndex), this.key, this.FromRedisValue);
-
-            enumerator.Disposed += (o, e) => conn.Dispose();
-
-            return enumerator;
+            return new RedisCollectionEnumerator<TItem>(this.conn.GetDatabase(this.dbIndex), this.key, this.FromRedisValue);
         }
 
         public TItem[] ToArray()
@@ -132,7 +165,7 @@ namespace ModelWorkshop.Scheduling.Redis
         protected abstract bool OnPeek(out TItem item);
 
         #endregion
-        
+
         #region Explicit Interface Implementations
 
         void IProducerConsumerCollection<TItem>.CopyTo(TItem[] array, int index)
@@ -175,15 +208,56 @@ namespace ModelWorkshop.Scheduling.Redis
             }
         }
 
+        protected RedisCollectionChangedSignal RedisValueToSignal(RedisValue value)
+        {
+            using (var ms = new MemoryStream(value, false))
+            using (var sr = new StreamReader(ms))
+            using (var jr = new JsonTextReader(sr))
+                return this.serializer.Deserialize<RedisCollectionChangedSignal>(jr);
+        }
+
+        protected RedisValue SignalToRedisValue(TItem item, NotifyCollectionChangedAction action)
+        {
+            using (var ms = new MemoryStream())
+            {
+                using (var sw = new StreamWriter(ms))
+                using (var jw = new JsonTextWriter(sw))
+                {
+                    this.serializer.Serialize(jw, new RedisCollectionChangedSignal(item, action));
+                }
+                return ms.ToArray();
+            }
+        }
+
+        #endregion
+
+        #region Redis Pop and Sub Related
+
+        private ISubscriber CreateSubscriber()
+        {
+            var result = this.conn.GetSubscriber();
+
+            if (result.SubscribedEndpoint(this.key.ToString()) == null) // Has not subscribed.
+                result.Subscribe(this.key.ToString(), this.RedisSubscriberHandler);
+
+            return result;
+        }
+
+        private void RedisSubscriberHandler(RedisChannel channel, RedisValue value)
+        {
+            this.OnCollectionChanged(this.RedisValueToSignal(value).ToEventArgs());
+            this.OnPropertyChanged(new PropertyChangedEventArgs("Count"));
+        }
+
         #endregion
 
         #region Event Raisers
 
-        protected virtual void OnPropertyChanged(PropertyChangedEventArgs e)
+        protected virtual void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
             try
             {
-                this.PropertyChanged(this, e);
+                this.collectionChanged(this, e);
             }
             catch (NullReferenceException)
             {
@@ -195,11 +269,11 @@ namespace ModelWorkshop.Scheduling.Redis
             }
         }
 
-        protected virtual void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
+        protected virtual void OnPropertyChanged(PropertyChangedEventArgs e)
         {
             try
             {
-                this.CollectionChanged(this, e);
+                this.propertyChanged(this, e);
             }
             catch (NullReferenceException)
             {
@@ -208,6 +282,39 @@ namespace ModelWorkshop.Scheduling.Redis
             catch (Exception error)
             {
                 throw error;
+            }
+        }
+
+        #endregion
+
+        #region Class
+
+        [DataContract]
+        public class RedisCollectionChangedSignal
+        {
+            [DataMember]
+            public TItem Item
+            {
+                get; set;
+            }
+
+            [DataMember]
+            public NotifyCollectionChangedAction Action
+            {
+                get; set;
+            }
+
+            public RedisCollectionChangedSignal() { }
+
+            public RedisCollectionChangedSignal(TItem item, NotifyCollectionChangedAction action)
+            {
+                this.Item = item;
+                this.Action = action;
+            }
+
+            public NotifyCollectionChangedEventArgs ToEventArgs()
+            {
+                return new NotifyCollectionChangedEventArgs(this.Action, this.Item);
             }
         }
 
