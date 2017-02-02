@@ -26,6 +26,7 @@ namespace ModelWorkshop.Scheduling.Redis
         private readonly int dbIndex;
 
         private readonly Lazy<ISubscriber> subscriber;
+        private readonly Lazy<IDatabase> database;
 
         private event NotifyCollectionChangedEventHandler collectionChanged;
         private event PropertyChangedEventHandler propertyChanged;
@@ -36,7 +37,7 @@ namespace ModelWorkshop.Scheduling.Redis
 
         public int Count
         {
-            get { return (int)conn.GetDatabase(this.dbIndex).ListLength(this.key); }
+            get { return (int)this.database.Value.ListLength(this.key); }
         }
 
         public RedisKey Key
@@ -62,6 +63,11 @@ namespace ModelWorkshop.Scheduling.Redis
         protected ISubscriber Subscriber
         {
             get { return this.subscriber.Value; }
+        }
+
+        protected IDatabase Database
+        {
+            get { return this.database.Value; }
         }
 
         #endregion
@@ -108,6 +114,7 @@ namespace ModelWorkshop.Scheduling.Redis
             this.dbIndex = db;
 
             this.subscriber = new Lazy<ISubscriber>(this.CreateSubscriber, LazyThreadSafetyMode.PublicationOnly);
+            this.database = new Lazy<IDatabase>(this.CreateDatabase, LazyThreadSafetyMode.PublicationOnly);
         }
 
         #endregion
@@ -141,17 +148,17 @@ namespace ModelWorkshop.Scheduling.Redis
 
         public void Clear()
         {
-            this.conn.GetDatabase(this.dbIndex).KeyDelete(this.key);
+            this.database.Value.KeyDelete(this.key);
         }
 
         public IEnumerator<TItem> GetEnumerator()
         {
-            return new RedisCollectionEnumerator<TItem>(this.conn.GetDatabase(this.dbIndex), this.key, this.FromRedisValue);
+            return new RedisCollectionEnumerator<TItem>(this.database.Value, this.key, this.FromRedisValue);
         }
 
         public TItem[] ToArray()
         {
-            return this.conn.GetDatabase(this.dbIndex).ListRange(this.key).Select(this.FromRedisValue).ToArray();
+            return this.database.Value.ListRange(this.key).Select(this.FromRedisValue).ToArray();
         }
 
         #endregion
@@ -232,6 +239,11 @@ namespace ModelWorkshop.Scheduling.Redis
         #endregion
 
         #region Redis Pop and Sub Related
+
+        private IDatabase CreateDatabase()
+        {
+            return this.conn.GetDatabase(this.dbIndex);
+        }
 
         private ISubscriber CreateSubscriber()
         {
