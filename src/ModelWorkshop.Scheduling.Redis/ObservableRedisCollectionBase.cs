@@ -113,6 +113,8 @@ namespace ModelWorkshop.Scheduling.Redis
             this.ch = new RedisChannel(this.key.ToString(), RedisChannel.PatternMode.Auto);
             this.dbIndex = db;
 
+            this.serializer = new JsonSerializer();
+
             this.subscriber = new Lazy<ISubscriber>(this.CreateSubscriber, LazyThreadSafetyMode.PublicationOnly);
             this.database = new Lazy<IDatabase>(this.CreateDatabase, LazyThreadSafetyMode.PublicationOnly);
         }
