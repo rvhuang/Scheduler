@@ -42,6 +42,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -50,6 +51,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\ModelWorkshop.Scheduling.Redis\ObservableRedisCollectionBase.cs">
+      <Link>ObservableRedisCollectionBase.cs</Link>
+    </Compile>
+    <Compile Include="..\ModelWorkshop.Scheduling.Redis\ObservableRedisQueue.cs">
+      <Link>ObservableRedisQueue.cs</Link>
+    </Compile>
+    <Compile Include="..\ModelWorkshop.Scheduling.Redis\ObservableRedisStack.cs">
+      <Link>ObservableRedisStack.cs</Link>
+    </Compile>
     <Compile Include="..\ModelWorkshop.Scheduling.Redis\RedisCollectionBase.cs">
       <Link>RedisCollectionBase.cs</Link>
     </Compile>
