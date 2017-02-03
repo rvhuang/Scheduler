@@ -251,8 +251,7 @@ namespace ModelWorkshop.Scheduling.Redis
         {
             var result = this.conn.GetSubscriber();
 
-            if (result.SubscribedEndpoint(this.key.ToString()) == null) // Has not subscribed.
-                result.Subscribe(this.key.ToString(), this.RedisSubscriberHandler);
+            result.Subscribe(this.key.ToString(), this.RedisSubscriberHandler, CommandFlags.HighPriority);
 
             return result;
         }
