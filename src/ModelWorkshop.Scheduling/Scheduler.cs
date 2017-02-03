@@ -247,22 +247,24 @@ namespace ModelWorkshop.Scheduling
         {
             var item = default(TItem);
 
-            while (this._items.Count > 0)
+            do
             {
-                try
+                while (this._items.TryTake(out item))
                 {
-                    if (this._items.TryTake(out item))
+                    try
+                    {
                         this._callback(item);
+                    }
+                    catch (Exception error)
+                    {
+                        this.OnSchedulerError(new SchedulerErrorEventArgs<TItem>(item, error));
+                    }
+                    this._cancellation.Token.ThrowIfCancellationRequested();
                 }
-                catch (Exception error)
-                {
-                    this.OnSchedulerError(new SchedulerErrorEventArgs<TItem>(item, error));
-                }
-                this._cancellation.Token.ThrowIfCancellationRequested();
 #if DEBUG
                 Debug.WriteLine("Remaining items: {0}.", this._items.Count);
 #endif
-            }
+            } while (this._items.Count > 0);
         }
         
         private void TaskContinuationAction(Task task)
