@@ -178,9 +178,49 @@ namespace ModelWorkshop.Scheduling
         /// </summary>
         /// <param name="item">A <typeparamref name="TItem"/> instance to be added.</param>
         /// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+        /// <exception cref="Exception">Unable to add item to <see cref="Items"/>.</exception>
         public void AddAndRun(TItem item)
         {
-            while (!this.TryAddAndRun(item)) ;
+            var token = default(CancellationToken);
+
+            try
+            {
+                token = this._cancellation.Token;
+            }
+            catch (ObjectDisposedException error)
+            {
+                throw new ObjectDisposedException("Object has been disposed.", error);
+            }
+
+            var retried = 0;
+
+            while (!this._items.TryAdd(item))
+                if (retried++ > 512)
+                    throw new Exception("Unable to add item to the collection.");
+            
+            var taken = false;
+
+            this._lock.TryEnter(ref taken);
+
+            if (taken)
+            {
+                try
+                {
+                    if (this._task == null || this._task.IsCompleted)
+                        this._task = Task.Factory.StartNew(this._action, token).ContinueWith(this.TaskContinuationAction);
+#if DEBUG
+                    Debug.WriteLine("New loop task is created.");
+#endif
+                }
+                catch (Exception error)
+                {
+                    throw new InvalidOperationException("Unable to launch asynchronous operation.", error);
+                }
+                finally
+                {
+                    this._lock.Exit();
+                }
+            }
         }
 
         /// <summary>
