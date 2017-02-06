@@ -10,11 +10,11 @@ In this model, a producer thread from the left will **NOT** be blocked when addi
 
 ### Redis Wrapper
 
-This project also defines a set of [Redis list](https://redis.io/topics/data-types) wrapper. This can avoid large local memory use when a number of items are not consumed yet.
+This project defines a set of [Redis list](https://redis.io/topics/data-types) wrapper. 
 
 ![Overview Redis](https://raw.githubusercontent.com/rvhuang/Scheduler/master/doc/images/scheduler-overview-redis.png)
 
-Storing items in Redis can also make multiple application instances sharing single collection possible. Following figure shows a pair of application instances in a cluster sharing a Redis list as queue/stack.
+Storing items in Redis can avoid large local memory use when a number of items are not consumed yet. Multiple application instances sharing single collection is also possible. Following example shows a pair of application instances in a cluster sharing a Redis list as queue/stack.
 
 ![Overview Observable Redis](https://raw.githubusercontent.com/rvhuang/Scheduler/master/doc/images/scheduler-overview-observable.png)
 
