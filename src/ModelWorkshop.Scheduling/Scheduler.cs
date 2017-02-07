@@ -195,7 +195,7 @@ namespace ModelWorkshop.Scheduling
             var retried = 0;
 
             while (!this._items.TryAdd(item))
-                if (retried++ > 512)
+                if (retried++ > 8)
                     throw new Exception("Unable to add item to the collection.");
 
             var taken = false;
