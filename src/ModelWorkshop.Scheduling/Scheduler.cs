@@ -60,7 +60,7 @@ namespace ModelWorkshop.Scheduling
                 if (this._lock.IsHeld)
                     return true;
                 else
-                    return this._task != null;
+                    return this._task != null && !this._task.IsCompleted;
             }
         }
 
