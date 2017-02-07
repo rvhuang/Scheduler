@@ -25,7 +25,7 @@ namespace ModelWorkshop.Scheduling
         private readonly CancellationTokenSource _cancellation;
 
         private SpinLock _lock = new SpinLock();
-        
+
         private Task _task = null;
         private Action _action = null;
         private Action<TItem> _callback = null;
@@ -49,7 +49,7 @@ namespace ModelWorkshop.Scheduling
         {
             get { return this._callback; }
         }
-        
+
         /// <summary>
         /// Gets a value that indicates whether current instance is taking item from <see cref="Items"/>. 
         /// </summary>
@@ -67,7 +67,7 @@ namespace ModelWorkshop.Scheduling
         #endregion
 
         #region Events
-        
+
         /// <summary>
         /// Occurs when current instance is unable to start consuming each item from <see cref="Items"/>.
         /// </summary>
@@ -117,7 +117,7 @@ namespace ModelWorkshop.Scheduling
         {
             if (callback == null) throw new ArgumentNullException("callback");
             if (items == null) throw new ArgumentNullException("items");
-            
+
             this._items = items;
             this._callback = callback;
             this._cancellation = new CancellationTokenSource();
@@ -197,7 +197,7 @@ namespace ModelWorkshop.Scheduling
             while (!this._items.TryAdd(item))
                 if (retried++ > 512)
                     throw new Exception("Unable to add item to the collection.");
-            
+
             var taken = false;
 
             this._lock.TryEnter(ref taken);
@@ -306,7 +306,7 @@ namespace ModelWorkshop.Scheduling
 #endif
             } while (this._items.Count > 0);
         }
-        
+
         private void TaskContinuationAction(Task task)
         {
             if (task.Exception != null)
@@ -388,7 +388,7 @@ namespace ModelWorkshop.Scheduling
             {
                 try
                 {
-                    this.Run();
+                    if (!this.IsBusy) this.Run();
                 }
                 catch (ObjectDisposedException)
                 {
