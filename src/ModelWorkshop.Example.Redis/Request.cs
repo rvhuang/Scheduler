@@ -8,8 +8,6 @@ namespace ModelWorkshop.Example.Redis
 
         public long Timestamp { get; set; }
         
-        public DateTime Date { get; set; }
-
-        public Guid GUID { get; set; }
+        public int SequenceNumber { get; set; }
     }
 }

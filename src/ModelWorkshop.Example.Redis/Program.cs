@@ -17,7 +17,7 @@ namespace ModelWorkshop.Example.Redis
             Console.Title = string.Format("Process ID: {0}", processId);
 
             using (var conn = ConnectionMultiplexer.Connect("localhost:6379"))
-            using (var scheduler = new Scheduler<Request>(SchedulerCallback, new ObservableRedisStack<Request>(conn, "test", 0)))
+            using (var scheduler = new Scheduler<Request>(SchedulerCallback, new ObservableRedisQueue<Request>(conn, "test", 0)))
             {
                 scheduler.Error += Scheduler_Error;
                 scheduler.SchedulerError += Scheduler_SchedulerError;
@@ -25,17 +25,11 @@ namespace ModelWorkshop.Example.Redis
                 for (int i = 0; i < 10000; i++)
                     scheduler.AddAndRun(new Request()
                     {
-                        Date = DateTime.Today,
-                        GUID = Guid.NewGuid(),
                         ProcessId = processId,
-                        Timestamp = Stopwatch.GetTimestamp()
+                        Timestamp = Stopwatch.GetTimestamp(),
+                        SequenceNumber = i,
                     });
-
-                Console.WriteLine("Pressy any key to cancel.");
-                Console.ReadKey(true);
-
-                scheduler.Stop();
-
+                
                 Console.WriteLine("Pressy any key to exit.");
                 Console.ReadKey(true);
             }
@@ -43,8 +37,7 @@ namespace ModelWorkshop.Example.Redis
 
         private static void SchedulerCallback(Request item)
         {
-            Console.WriteLine("Received Request from Process: {0}", item.ProcessId);
-            Console.WriteLine("======================");
+            Console.WriteLine("Received Request from Process: {0}\tSeq: {1}", item.ProcessId, item.SequenceNumber);
         }
 
         private static void Scheduler_Error(object sender, ErrorEventArgs e)
