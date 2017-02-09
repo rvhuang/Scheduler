@@ -2,26 +2,31 @@
 
 ### Overview
 
-**Scheduler** is an asynchronous producer-consumer model that allows items to be added from multiple threads but allows only single thread to consume the collection.
+**Scheduler** is an asynchronous producer-consumer model that allows producers concurrently add items to the collection and consumes each item from the collection in single thread.
 
 ![Overview](https://raw.githubusercontent.com/rvhuang/Scheduler/master/doc/images/scheduler-overview.png)
 
-In this model, a producer thread from the left will **NOT** be blocked when adding the item to the collection, which means the thread will continue while the item is waiting to be consumed in the collection. The collection can be any type that implements [IProducerConsumerCollection(T)](https://msdn.microsoft.com/en-us/library/dd287147.aspx) interface. By calling [AddAndRun](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L173) or [TryAddAndRun](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L184) method, the main loop thread will be launched if the item to be added is the first one in the collection, and will stop when all items are consumed by the action. Items can be added later by calling same method while main loop thread is running. Main loop thread can be canceled at any time.
+The flow can be summarized with following steps:
 
-### Redis Wrapper
+1. A producer adds an item to the collection by calling [AddAndRun](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L182) or [TryAddAndRun](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L232) method. 
+2. Scheduler checks whether the item is the first one in the collection. If so, the main loop thread will be launched. 
+3. Action consumes the item from the collection.
+4. Scheduler checks whether the collection is empty. If so, main loop thread ends. If not, repeats step 3. 
 
-This project defines a set of [Redis list](https://redis.io/topics/data-types) wrapper. 
+Main loop thread can be canceled at any time with [Stop](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L277) method, and resumed with [Run](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L138) method.
+
+### Redis Integration
+
+This project defines a set of Redis wrapper that can be used to replace in-memory collection. In this scenario, items are stored in Redis list instead of local memory and wrapped by [RedisQueue](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling.Redis/RedisQueue.cs) or [RedisStack](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling.Redis/RedisStack.cs). This can avoid large local memory use when a number of items are not consumed yet.
 
 ![Overview Redis](https://raw.githubusercontent.com/rvhuang/Scheduler/master/doc/images/scheduler-overview-redis.png)
 
-Storing items in Redis can avoid large local memory use when a number of items are not consumed yet. Multiple application instances sharing single collection is also possible. Following example shows a pair of application instances in a cluster sharing a Redis list as queue/stack.
+By applying [ObservableRedisQueue](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling.Redis/ObservableRedisQueue.cs) or [ObservableRedisStack](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling.Redis/ObservableRedisStack.cs), which implement [INotifyCollectionChanged](https://docs.microsoft.com/en-us/dotnet/core/api/system.collections.specialized.inotifycollectionchanged) interface, it is also possible that multiple application instances share same collection. Once new items have been added via an application instance, all instances sharing the collection will receive the notification and start the main loop thread respectively. 
 
 ![Overview Observable Redis](https://raw.githubusercontent.com/rvhuang/Scheduler/master/doc/images/scheduler-overview-observable.png)
 
-The Redis wrapper in the figure is [observable](https://msdn.microsoft.com/en-us/library/system.collections.specialized.inotifycollectionchanged.aspx), which means an instance will be notified when an item has been added to or taken from the collection by another instance. When an item has been added, main loop thread will also be triggered if it is not running.
-
 The Redis wrappers are defined in [ModelWorkshop.Scheduling.Redis](https://github.com/rvhuang/Scheduler/tree/master/src/ModelWorkshop.Scheduling.Redis) namespace.
 
-## Platforms
+### Platforms
 
 This project targets .Net Core and .Net Framework 4.5. 
