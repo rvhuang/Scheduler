@@ -13,6 +13,10 @@ using System.Threading;
 
 namespace ModelWorkshop.Scheduling.Redis
 {
+    /// <summary>
+    /// Defines the base class for <see cref="ObservableRedisQueue{TItem}"/> and <see cref="ObservableRedisStack{TItem}"/>.
+    /// </summary>
+    /// <typeparam name="TItem">Specifies the type of elements in the collection.</typeparam>
     public abstract class ObservableRedisCollectionBase<TItem>
         : IProducerConsumerCollection<TItem>, IReadOnlyCollection<TItem>, INotifyCollectionChanged, INotifyPropertyChanged
     {
@@ -35,16 +39,25 @@ namespace ModelWorkshop.Scheduling.Redis
 
         #region Properties
 
+        /// <summary>
+        /// Gets the number of elements contained in the Redis list.
+        /// </summary>
         public int Count
         {
             get { return (int)this.database.Value.ListLength(this.key); }
         }
 
+        /// <summary>
+        /// Gets the key that is associated with the Redis list.
+        /// </summary>
         public RedisKey Key
         {
             get { return this.key; }
         }
 
+        /// <summary>
+        /// Gets the index of database that the list is stored. 
+        /// </summary>
         public int DatabaseIndex
         {
             get { return this.dbIndex; }
@@ -59,12 +72,18 @@ namespace ModelWorkshop.Scheduling.Redis
         {
             get { throw new NotImplementedException(); }
         }
-
+        
+        /// <summary>
+        /// Gets the Redis channel subscriber that is used to notify and receive changed event.
+        /// </summary>
         protected ISubscriber Subscriber
         {
             get { return this.subscriber.Value; }
         }
 
+        /// <summary>
+        /// Gets the Redis database interface. 
+        /// </summary>
         protected IDatabase Database
         {
             get { return this.database.Value; }
@@ -104,6 +123,13 @@ namespace ModelWorkshop.Scheduling.Redis
 
         #region Constructors
 
+        /// <summary>
+        /// Initializes a new instance of the class with Redis connection, key and database index.
+        /// </summary>
+        /// <param name="conn">The Redis connection.</param> 
+        /// <param name="key">The key that is associated with the Redis list.</param>
+        /// <param name="db">The index of database that the list is stored.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="conn"/> is null.</exception>
         protected ObservableRedisCollectionBase(ConnectionMultiplexer conn, RedisKey key, int db)
         {
             if (conn == null) throw new ArgumentNullException("conn");
@@ -122,7 +148,12 @@ namespace ModelWorkshop.Scheduling.Redis
         #endregion
 
         #region Methods
-
+        
+        /// <summary>
+        /// Attempts to add an object to the Redis list.
+        /// </summary>
+        /// <param name="item">The object to add to the list.</param>
+        /// <returns>true if the object was added successfully; otherwise, false.</returns>
         public bool TryAdd(TItem item)
         {
             if (this.OnAdd(item))
@@ -133,6 +164,11 @@ namespace ModelWorkshop.Scheduling.Redis
             return false;
         }
 
+        /// <summary>
+        /// Attempts to remove and return an object from the Redis list.
+        /// </summary>
+        /// <param name="item">When this method returns, if the operation was successful, item contains the object removed. If no object was available to be removed, the value is unspecified.</param>
+        /// <returns>true if an element was removed and returned succesfully; otherwise, false.</returns>
         public bool TryTake(out TItem item)
         {
             if (this.OnTake(out item))
@@ -143,21 +179,37 @@ namespace ModelWorkshop.Scheduling.Redis
             return false;
         }
 
+        /// <summary>
+        /// Tries to return an object from the Redis list without removing it.
+        /// </summary>
+        /// <param name="item">When this method returns, result contains an object from the Redis list or an unspecified value if the operation failed.</param>
+        /// <returns>true if an object was returned successfully; otherwise, false.</returns>
         public bool TryPeek(out TItem item)
         {
             return this.OnPeek(out item);
         }
-
+        
+        /// <summary>
+        /// Removes all items from the Reids list.
+        /// </summary>
         public void Clear()
         {
             this.database.Value.KeyDelete(this.key);
         }
 
+        /// <summary>
+        /// Returns an enumerator that iterates through the Redis list.
+        /// </summary>
+        /// <returns>An enumerator for the Redis list.</returns>
         public IEnumerator<TItem> GetEnumerator()
         {
             return new RedisCollectionEnumerator<TItem>(this.database.Value, this.key, this.FromRedisValue);
         }
 
+        /// <summary>
+        /// Copies the Redis list to a new array.
+        /// </summary>
+        /// <returns>A new array containing a snapshot of elements copied from the Redis list.</returns>
         public TItem[] ToArray()
         {
             return this.database.Value.ListRange(this.key).Select(this.FromRedisValue).ToArray();
@@ -166,11 +218,26 @@ namespace ModelWorkshop.Scheduling.Redis
         #endregion
 
         #region Abstract Methods
-
+        
+        /// <summary>
+        /// Implemented in derived classes. Attempts to add an object to the Redis list.
+        /// </summary>
+        /// <param name="item">The object to add to the list.</param>
+        /// <returns>true if the object was added successfully; otherwise, false.</returns>
         protected abstract bool OnAdd(TItem item);
 
+        /// <summary>
+        /// Implemented in derived classes. Attempts to remove and return an object from the Redis list.
+        /// </summary>
+        /// <param name="item">When this method returns, if the operation was successful, item contains the object removed. If no object was available to be removed, the value is unspecified.</param>
+        /// <returns>true if an element was removed and returned succesfully; otherwise, false.</returns>
         protected abstract bool OnTake(out TItem item);
 
+        /// <summary>
+        /// Implemented in derived classes. Tries to return an object from the Redis list without removing it.
+        /// </summary>
+        /// <param name="item">When this method returns, result contains an object from the Redis list or an unspecified value if the operation failed.</param>
+        /// <returns>true if an object was returned successfully; otherwise, false.</returns>
         protected abstract bool OnPeek(out TItem item);
 
         #endregion
@@ -196,35 +263,63 @@ namespace ModelWorkshop.Scheduling.Redis
 
         #region Serialization Methods
 
-        protected TItem FromRedisValue(RedisValue value)
+        /// <summary>
+        /// Deserializes a Redis value to <typeparamref name="TItem"/> instance.
+        /// </summary>
+        /// <param name="value">The Redis value to be deserialized.</param>
+        /// <returns>The item converted from the Redis value.</returns>
+        protected virtual TItem FromRedisValue(RedisValue value)
         {
+            if (value.IsNull)
+                return default(TItem);
+
             using (var ms = new MemoryStream(value, false))
             using (var sr = new StreamReader(ms))
             using (var jr = new JsonTextReader(sr))
                 return this.serializer.Deserialize<TItem>(jr);
         }
 
-        protected RedisValue ToRedisValue(TItem result)
+        /// <summary>
+        /// Serializes a <typeparamref name="TItem"/> instance to Redis value.
+        /// </summary>
+        /// <param name="item">The item to be serialized.</param>
+        /// <returns>A Redis value converted from the item.</returns>
+        protected virtual RedisValue ToRedisValue(TItem item)
         {
+            if (item == null)
+                return RedisValue.Null;
+
             using (var ms = new MemoryStream())
             {
                 using (var sw = new StreamWriter(ms))
                 using (var jw = new JsonTextWriter(sw))
                 {
-                    this.serializer.Serialize(jw, result);
+                    this.serializer.Serialize(jw, item);
                 }
                 return ms.ToArray();
             }
         }
 
-        protected RedisCollectionChangedSignal RedisValueToSignal(RedisValue value)
+        /// <summary>
+        /// Deserializes a Redis value to <see cref="NotifyCollectionChangedSignal"/> instance.
+        /// </summary>
+        /// <param name="value">The Redis value to be deserialized.</param>
+        /// <returns>The instance converted from the Redis value.</returns>
+        protected NotifyCollectionChangedSignal RedisValueToSignal(RedisValue value)
         {
+
             using (var ms = new MemoryStream(value, false))
             using (var sr = new StreamReader(ms))
             using (var jr = new JsonTextReader(sr))
-                return this.serializer.Deserialize<RedisCollectionChangedSignal>(jr);
+                return this.serializer.Deserialize<NotifyCollectionChangedSignal>(jr);
         }
 
+        /// <summary>
+        /// Creates a Redis value of collection change signal from item and collection change action.
+        /// </summary>
+        /// <param name="item">The item that is affected.</param>
+        /// <param name="action">The collection changed action.</param>
+        /// <returns>A Redis value of collection change signal.</returns>
         protected RedisValue SignalToRedisValue(TItem item, NotifyCollectionChangedAction action)
         {
             using (var ms = new MemoryStream())
@@ -232,7 +327,7 @@ namespace ModelWorkshop.Scheduling.Redis
                 using (var sw = new StreamWriter(ms))
                 using (var jw = new JsonTextWriter(sw))
                 {
-                    this.serializer.Serialize(jw, new RedisCollectionChangedSignal(item, action));
+                    this.serializer.Serialize(jw, new NotifyCollectionChangedSignal(item, action));
                 }
                 return ms.ToArray();
             }
@@ -266,6 +361,10 @@ namespace ModelWorkshop.Scheduling.Redis
 
         #region Event Raisers
 
+        /// <summary>
+        /// Raises the <see cref="CollectionChanged"/> event.
+        /// </summary>
+        /// <param name="e">The event data.</param>
         protected virtual void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
             try
@@ -282,6 +381,10 @@ namespace ModelWorkshop.Scheduling.Redis
             }
         }
 
+        /// <summary>
+        /// Raises the <see cref="PropertyChanged"/> event.
+        /// </summary>
+        /// <param name="e">The event data.</param>
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs e)
         {
             try
@@ -302,30 +405,47 @@ namespace ModelWorkshop.Scheduling.Redis
 
         #region Class
 
+        /// <summary>
+        /// Defines the collection changed notification sent via a Redis channel.
+        /// </summary>
         [DataContract]
-        public class RedisCollectionChangedSignal
+        public class NotifyCollectionChangedSignal
         {
+            /// <summary>
+            /// Gets ore sets the item that is affected by the change.
+            /// </summary>
             [DataMember]
             public TItem Item
             {
                 get; set;
             }
 
+            /// <summary>
+            /// Gets or sets action that caused the event.
+            /// </summary>
             [DataMember]
             public NotifyCollectionChangedAction Action
             {
                 get; set;
             }
 
-            public RedisCollectionChangedSignal() { }
+            /// <summary>
+            /// Initializes a new instance of the instance.
+            /// </summary>
+            public NotifyCollectionChangedSignal() { }
 
-            public RedisCollectionChangedSignal(TItem item, NotifyCollectionChangedAction action)
+            /// <summary>
+            /// Initializes a new instance of the instance.
+            /// </summary>
+            /// <param name="item">The item that is affected by the change.</param>
+            /// <param name="action">The action that caused the event.</param>
+            public NotifyCollectionChangedSignal(TItem item, NotifyCollectionChangedAction action)
             {
                 this.Item = item;
                 this.Action = action;
             }
 
-            public NotifyCollectionChangedEventArgs ToEventArgs()
+            internal NotifyCollectionChangedEventArgs ToEventArgs()
             {
                 return new NotifyCollectionChangedEventArgs(this.Action, this.Item);
             }
