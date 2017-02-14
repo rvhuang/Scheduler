@@ -13,7 +13,10 @@ The flow can be summarized with following steps:
 3. Action consumes the item from the collection.
 4. Scheduler checks whether the collection is empty. If so, main loop thread ends. If not, repeats step 3. 
 
-Main loop thread can be canceled at any time with [Stop](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L277) method, and resumed with [Run](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L138) method.
+The Scheduler performs following behaviors to handle main loop thread:
+
+* If the collection implements [INotifyCollectionChanged](https://docs.microsoft.com/en-us/dotnet/core/api/system.collections.specialized.inotifycollectionchanged) interface, when *CollectionChanged* event is fired to notify that new items has been added, the main loop thread will also be launched if it is in idle. 
+* Main loop thread can be canceled at any time with [Stop](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L277) method, and resumed with [Run](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling/Scheduler.cs#L138) method.
 
 ### Redis Integration
 
@@ -21,7 +24,7 @@ This project defines a set of Redis wrapper that can be used to replace in-memor
 
 ![Overview Redis](https://raw.githubusercontent.com/rvhuang/Scheduler/master/doc/images/scheduler-overview-redis.png)
 
-By applying [ObservableRedisQueue](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling.Redis/ObservableRedisQueue.cs) or [ObservableRedisStack](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling.Redis/ObservableRedisStack.cs), which implement [INotifyCollectionChanged](https://docs.microsoft.com/en-us/dotnet/core/api/system.collections.specialized.inotifycollectionchanged) interface, it is also possible that multiple application instances share same collection. Once new items have been added via an application instance, all instances sharing the collection will receive the notification and start the main loop thread respectively. 
+By applying [ObservableRedisQueue](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling.Redis/ObservableRedisQueue.cs) or [ObservableRedisStack](https://github.com/rvhuang/Scheduler/blob/master/src/ModelWorkshop.Scheduling.Redis/ObservableRedisStack.cs), which implements [INotifyCollectionChanged](https://docs.microsoft.com/en-us/dotnet/core/api/system.collections.specialized.inotifycollectionchanged) interface, it is also possible that multiple application instances share same collection. Once new items have been added via an application instance, all instances sharing same Redis collection will receive the notification and start the main loop thread respectively. 
 
 ![Overview Observable Redis](https://raw.githubusercontent.com/rvhuang/Scheduler/master/doc/images/scheduler-overview-observable.png)
 
